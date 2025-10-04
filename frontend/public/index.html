@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Intecap - NASA Space Apps Challenge 2025</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: white;
+            background: linear-gradient(180deg, #0b2d8a, #1e73d9);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .content {
+            flex: 1;
+            text-align: center;
+            padding: 40px;
+        }
+        h1 { font-size: 2.5rem; margin: 20px 0; }
+        p { font-size: 1.2rem; margin: 0 0 30px; }
+        .logo-container {
+            display: flex; gap: 20px; justify-content: center; align-items: center; margin-bottom: 30px;
+        }
+        .logo { max-width: 200px; }
+
+        /* === Chat lateral fijo con animación === */
+        #chat-box {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 350px;
+            height: 100vh;
+            background: #fff;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            border-left: 3px solid #0b2d8a;
+            transform: translateX(0);
+            transition: transform 0.3s ease;
+        }
+        #chat-box.hidden {
+            transform: translateX(100%);
+        }
+        #chat-header {
+            background: #0b2d8a;
+            color: #fff;
+            padding: 10px;
+            font-weight: bold;
+            text-align: center;
+            position: relative;
+        }
+        #toggle-chat {
+            position: absolute;
+            left: -60px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #e5f13a;
+            color: #000;
+            border: none;
+            padding: 15px;
+            cursor: pointer;
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+        #toggle-chat:hover {
+            background: #cddc39;
+            transform: translateY(-50%) scale(1.1);
+        }
+        #chat-messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .message {
+            max-width: 75%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            line-height: 1.3;
+        }
+        .user { align-self: flex-end; background: #0b2d8a; color: #fff; border-bottom-right-radius: 0; }
+        .bot { align-self: flex-start; background: #f1f1f1; color: #000; border-bottom-left-radius: 0; }
+        #chat-input { display: flex; border-top: 1px solid #ccc; }
+        #chat-input input { flex: 1; padding: 10px; border: none; outline: none; }
+        #chat-input button { background: #0b2d8a; color: #fff; border: none; padding: 10px 15px; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="content">
+    <div class="logo-container">
+        <img class="logo" src="https://intecap.edu.gt/wp-content/uploads/2021/06/logo-intecap.png" alt="Intecap">
+        <img class="logo" src="https://assets.spaceappschallenge.org/media/images/2025Theme_logos_for_Web__final.2e16d0ba.fill-785x660.png" alt="NASA">
+    </div>
+    <h1>Intecap - NASA Space Apps Challenge 2025</h1>
+    <p>"Learn, Launch, Lead" 4-5 de Octubre <br> Proyecto base para participantes de Intecap</p>
+</div>
+
+<!-- Chat lateral con toggle -->
+<div id="chat-box">
+    <div id="chat-header">
+        Asistente <span id="status-indicator" style="margin-left:8px;">🔴</span>
+        <button id="toggle-chat">🤖</button>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="chat-input">
+        <input type="text" id="userMessage" placeholder="Escribe tu mensaje...">
+        <button onclick="sendMessage()">➤</button>
+    </div>
+</div>
+
+<script>
+    let sessionId = sessionStorage.getItem("chatSessionId");
+    if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        sessionStorage.setItem("chatSessionId", sessionId);
+    }
+
+    const messages = document.getElementById("chat-messages");
+    const input = document.getElementById("userMessage");
+    const chatBox = document.getElementById("chat-box");
+    const toggleBtn = document.getElementById("toggle-chat");
+
+    let serviceActive = false;
+
+    async function checkHealth() {
+        try {
+            const res = await fetch("http://localhost:3000/health");
+            const data = await res.json();
+            if (data.status === "ok") {
+                serviceActive = true;
+                document.getElementById("status-indicator").textContent = "🟢";
+            } else {
+                serviceActive = false;
+                document.getElementById("status-indicator").textContent = "🔴";
+            }
+        } catch {
+            serviceActive = false;
+            document.getElementById("status-indicator").textContent = "🔴";
+        }
+    }
+
+    setInterval(checkHealth, 5000);
+    checkHealth();
+
+    async function sendMessage() {
+        if (!serviceActive) {
+            addMessage("bot", "El asistente no está disponible en este momento.");
+            return;
+        }
+        const text = input.value.trim();
+        if (!text) return;
+
+        addMessage("user", text);
+        input.value = "";
+
+        try {
+            const res = await fetch("http://localhost:3000/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId, message: text })
+            });
+            const data = await res.json();
+            addMessage("bot", data.response || "Sin respuesta");
+        } catch {
+            addMessage("bot", "Error al conectar con el servidor.");
+        }
+    }
+
+    function addMessage(type, text) {
+        const div = document.createElement("div");
+        div.classList.add("message", type);
+        div.textContent = text;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Enter para enviar
+    input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Toggle mostrar/ocultar chat
+    toggleBtn.addEventListener("click", () => {
+        chatBox.classList.toggle("hidden");
+    });
+</script>
+</body>
+</html>
