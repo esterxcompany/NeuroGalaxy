@@ -115,7 +115,6 @@ async function main() {
         }
     }
 }
-export { processPdf };
 
 main().catch(err => {
     console.error("❌ Error en el script:", err);
